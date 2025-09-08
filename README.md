@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # TeamTone - Emotional Contagion Tracker
 
 A comprehensive web application for tracking emotional well-being across teams, built with React.js and Supabase.
@@ -173,3 +174,7 @@ For issues and questions:
 ---
 
 Built with ❤️ for better team emotional health
+=======
+# Emotional-Contagion-Tracker
+Emotional Contagion Tracker for teams to track the spread of emotions within the workplace.
+>>>>>>> f1ff56d3a69e8aed950682874fb7d15b3a4fdf48
