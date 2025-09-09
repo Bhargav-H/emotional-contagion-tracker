@@ -32,35 +32,36 @@ export function useAuthState() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Get initial session
+    // ✅ Initial session fetch
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session)
       setUser(session?.user ?? null)
+
       if (session?.user) {
         fetchProfile(session.user.id)
-      } else {
-        setLoading(false)
       }
+      setLoading(false) // ✅ Don't block UI on profile fetch
     })
 
-    // Listen for auth changes
+    // ✅ Auth change listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      async (_event, session) => {
         setSession(session)
         setUser(session?.user ?? null)
-        
+
         if (session?.user) {
-          await fetchProfile(session.user.id)
+          fetchProfile(session.user.id)
         } else {
           setProfile(null)
-          setLoading(false)
         }
+        setLoading(false)
       }
     )
 
     return () => subscription.unsubscribe()
   }, [])
 
+  // ✅ Profile fetch
   async function fetchProfile(userId: string) {
     try {
       const { data, error } = await supabase
@@ -71,26 +72,27 @@ export function useAuthState() {
 
       if (error) {
         console.error('Error fetching profile:', error)
+        setProfile(null)
       } else {
         setProfile(data)
       }
     } catch (error) {
       console.error('Error fetching profile:', error)
-    } finally {
-      setLoading(false)
     }
   }
 
+  // ✅ Sign in
   const signIn = async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password })
     return { error }
   }
 
+  // ✅ Sign up (also create profile row)
   const signUp = async (email: string, password: string, name: string, role: string) => {
     const { data, error } = await supabase.auth.signUp({ email, password })
-    
+
     if (error) return { error }
-    
+
     if (data.user) {
       const { error: profileError } = await supabase.from('users').insert({
         id: data.user.id,
@@ -98,15 +100,19 @@ export function useAuthState() {
         name,
         role: role as 'EMPLOYEE' | 'MANAGER' | 'ADMIN',
       })
-      
+
       if (profileError) return { error: profileError }
     }
-    
+
     return { error: null }
   }
 
+  // ✅ Sign out (clear local state too)
   const signOut = async () => {
     await supabase.auth.signOut()
+    setUser(null)
+    setSession(null)
+    setProfile(null)
   }
 
   return {

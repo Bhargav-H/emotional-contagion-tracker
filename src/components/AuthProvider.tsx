@@ -7,7 +7,7 @@ interface AuthProviderProps {
 
 export function AuthProvider({ children }: AuthProviderProps) {
   const auth = useAuthState()
-  
+
   return (
     <AuthContext.Provider value={auth}>
       {children}
