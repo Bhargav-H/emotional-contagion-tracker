@@ -1,5 +1,5 @@
 /*
-  # TeamTone Database Schema
+  # TeamTone Database Schema Setup
 
   1. New Tables
     - `users`
@@ -31,6 +31,9 @@
     - Employees can only access their own data
     - Managers can access aggregated team data
     - Admins have full access
+
+  3. Sample Data
+    - Create sample teams and users for testing
 */
 
 -- Create teams table first
@@ -52,8 +55,16 @@ CREATE TABLE IF NOT EXISTS users (
 );
 
 -- Add foreign key constraint for teams.manager_id after users table exists
-ALTER TABLE teams ADD CONSTRAINT fk_teams_manager 
-  FOREIGN KEY (manager_id) REFERENCES users(id);
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.table_constraints 
+    WHERE constraint_name = 'fk_teams_manager'
+  ) THEN
+    ALTER TABLE teams ADD CONSTRAINT fk_teams_manager 
+      FOREIGN KEY (manager_id) REFERENCES users(id);
+  END IF;
+END $$;
 
 -- Create emotion_logs table
 CREATE TABLE IF NOT EXISTS emotion_logs (
@@ -88,6 +99,16 @@ ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE teams ENABLE ROW LEVEL SECURITY;
 ALTER TABLE emotion_logs ENABLE ROW LEVEL SECURITY;
 
+-- Drop existing policies if they exist
+DROP POLICY IF EXISTS "Users can read own profile" ON users;
+DROP POLICY IF EXISTS "Users can update own profile" ON users;
+DROP POLICY IF EXISTS "Managers can read team members" ON users;
+DROP POLICY IF EXISTS "Team members can read their team" ON teams;
+DROP POLICY IF EXISTS "Managers can manage their teams" ON teams;
+DROP POLICY IF EXISTS "Users can insert own logs" ON emotion_logs;
+DROP POLICY IF EXISTS "Users can read own logs" ON emotion_logs;
+DROP POLICY IF EXISTS "Managers can read team aggregated data" ON emotion_logs;
+
 -- RLS Policies for users table
 CREATE POLICY "Users can read own profile"
   ON users
@@ -101,15 +122,22 @@ CREATE POLICY "Users can update own profile"
   TO authenticated
   USING (auth.uid() = id);
 
+CREATE POLICY "Users can insert own profile"
+  ON users
+  FOR INSERT
+  TO authenticated
+  WITH CHECK (auth.uid() = id);
+
 CREATE POLICY "Managers can read team members"
   ON users
   FOR SELECT
   TO authenticated
   USING (
-    role = 'ADMIN' OR 
-    (role = 'MANAGER' AND team_id IN (
-      SELECT id FROM teams WHERE manager_id = auth.uid()
-    ))
+    EXISTS (
+      SELECT 1 FROM users u 
+      WHERE u.id = auth.uid() 
+      AND (u.role = 'ADMIN' OR (u.role = 'MANAGER' AND u.team_id = users.team_id))
+    )
   );
 
 -- RLS Policies for teams table
@@ -118,17 +146,19 @@ CREATE POLICY "Team members can read their team"
   FOR SELECT
   TO authenticated
   USING (
-    auth.uid() IN (SELECT id FROM users WHERE team_id = teams.id) OR
-    manager_id = auth.uid()
+    id IN (SELECT team_id FROM users WHERE id = auth.uid()) OR
+    manager_id = auth.uid() OR
+    EXISTS (SELECT 1 FROM users WHERE id = auth.uid() AND role = 'ADMIN')
   );
 
 CREATE POLICY "Managers can manage their teams"
   ON teams
   FOR ALL
   TO authenticated
-  USING (manager_id = auth.uid() OR auth.uid() IN (
-    SELECT id FROM users WHERE role = 'ADMIN'
-  ));
+  USING (
+    manager_id = auth.uid() OR 
+    EXISTS (SELECT 1 FROM users WHERE id = auth.uid() AND role = 'ADMIN')
+  );
 
 -- RLS Policies for emotion_logs table
 CREATE POLICY "Users can insert own logs"
@@ -149,11 +179,13 @@ CREATE POLICY "Managers can read team aggregated data"
   TO authenticated
   USING (
     user_id = auth.uid() OR
-    auth.uid() IN (
-      SELECT manager_id FROM teams WHERE id = emotion_logs.team_id
-    ) OR
-    auth.uid() IN (
-      SELECT id FROM users WHERE role = 'ADMIN'
+    EXISTS (
+      SELECT 1 FROM users u 
+      WHERE u.id = auth.uid() 
+      AND (
+        u.role = 'ADMIN' OR 
+        (u.role = 'MANAGER' AND u.team_id = emotion_logs.team_id)
+      )
     )
   );
 
@@ -163,8 +195,9 @@ CREATE INDEX IF NOT EXISTS idx_emotion_logs_team_id ON emotion_logs(team_id);
 CREATE INDEX IF NOT EXISTS idx_emotion_logs_created_at ON emotion_logs(created_at);
 CREATE INDEX IF NOT EXISTS idx_users_team_id ON users(team_id);
 
--- Insert sample data
+-- Insert sample teams
 INSERT INTO teams (id, name) VALUES 
   ('550e8400-e29b-41d4-a716-446655440000', 'Engineering Team'),
-  ('550e8400-e29b-41d4-a716-446655440001', 'Marketing Team')
+  ('550e8400-e29b-41d4-a716-446655440001', 'Marketing Team'),
+  ('550e8400-e29b-41d4-a716-446655440002', 'Design Team')
 ON CONFLICT (id) DO NOTHING;
