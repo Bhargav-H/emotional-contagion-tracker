@@ -166,13 +166,13 @@ export function Login() {
         </div>
 
         {/* Demo credentials */}
-        <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+        {/* <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
           <p className="text-sm text-blue-700 dark:text-blue-300 font-medium mb-2">Demo Credentials:</p>
           <p className="text-xs text-blue-600 dark:text-blue-400">
             Employee: employee@demo.com / password<br />
             Manager: manager@demo.com / password
           </p>
-        </div>
+        </div> */}
       </div>
     </div>
   )
