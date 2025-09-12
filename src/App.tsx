@@ -7,39 +7,45 @@ import { Dashboard } from './components/Dashboard'
 import { CheckIn } from './components/CheckIn'
 import { PersonalHistory } from './components/PersonalHistory'
 import { TeamInsights } from './components/TeamInsights'
+import { TeamManagement } from './components/TeamManagement'
 import { Settings } from './components/Settings'
 import { useAuth } from './hooks/useAuth'
 
 function AppContent() {
-  const { user, loading } = useAuth()
+  const { user, profile, loading } = useAuth()
   const [activeTab, setActiveTab] = useState('dashboard')
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-      </div>
-    )
+  if (loading) return <div>Loading...</div>
+  if (!user) return <Login />
+
+  // Tabs for everyone + conditional tabs
+  const tabs = ['dashboard', 'checkin', 'history', 'settings']
+
+  if (profile?.role === 'MANAGER' || profile?.role === 'ADMIN') {
+    tabs.push('team') // for TeamInsights
   }
 
-  if (!user) {
-    return <Login />
+  if (profile?.role === 'ADMIN') {
+    tabs.push('team-management') // for TeamManagement
   }
 
-  const renderContent = () => {
+  function renderContent() {
     switch (activeTab) {
-      case 'dashboard':
-        return <Dashboard onNavigate={setActiveTab} />
-      case 'checkin':
-        return <CheckIn />
-      case 'history':
-        return <PersonalHistory />
-      case 'team':
-        return <TeamInsights />
-      case 'settings':
-        return <Settings />
-      default:
-        return <Dashboard onNavigate={setActiveTab} />
+      case 'dashboard': return <Dashboard onNavigate={setActiveTab} />
+      case 'checkin': return <CheckIn />
+      case 'history': return <PersonalHistory />
+      case 'settings': return <Settings />
+      case 'team': 
+        if (profile?.role === 'MANAGER' || profile?.role === 'ADMIN') {
+          return <TeamInsights />
+        }
+        return <div>Unauthorized</div>
+      case 'team-management':
+        if (profile?.role === 'ADMIN') {
+          return <TeamManagement />
+        }
+        return <div>Unauthorized</div>
+      default: return <Dashboard onNavigate={setActiveTab} />
     }
   }
 
@@ -49,7 +55,6 @@ function AppContent() {
     </Layout>
   )
 }
-
 function App() {
   return (
     <AuthProvider>

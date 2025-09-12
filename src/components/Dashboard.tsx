@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Heart, Activity, TrendingUp, Users, Calendar, Clock } from 'lucide-react';
+import { Heart, Activity, TrendingUp, Users, Calendar } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../lib/supabase';
 
@@ -11,7 +11,6 @@ interface StatCardProps {
   label: string;
   value: string | number;
   icon: React.ComponentType<{ className?: string }>;
-  change?: string;
 }
 
 interface ActionCardProps {
@@ -37,20 +36,10 @@ export function Dashboard({ onNavigate }: DashboardProps) {
     checkInsThisWeek: number;
     avgMood: number;
     avgStress: number;
-    daysActive: number;
-    moodChange: number;
-    stressChange: number;
-    daysChange: number;
-    checkInsChange: number;
   }>({
     checkInsThisWeek: 0,
     avgMood: 0,
     avgStress: 0,
-    daysActive: 0,
-    moodChange: 0,
-    stressChange: 0,
-    daysChange: 0,
-    checkInsChange: 0,
   });
   const [recentActivity, setRecentActivity] = useState<RecentLog[]>([]);
 
@@ -60,57 +49,35 @@ export function Dashboard({ onNavigate }: DashboardProps) {
       const today = new Date();
       const sevenDaysAgo = new Date();
       sevenDaysAgo.setDate(today.getDate() - 7);
-      const fourteenDaysAgo = new Date();
-      fourteenDaysAgo.setDate(today.getDate() - 14);
 
-      // fetch current 7-day and previous 7-day logs
-      const [{ data: current, error: error1 }, { data: prev, error: error2 }] = await Promise.all([
-        supabase
-          .from('emotion_logs')
-          .select('created_at, overall_mood, current_mood, stress, productivity, key_event')
-          .eq('user_id', profile.id)
-          .gte('created_at', sevenDaysAgo.toISOString())
-          .order('created_at', { ascending: false }),
-        supabase
-          .from('emotion_logs')
-          .select('created_at, overall_mood, current_mood, stress, productivity, key_event')
-          .eq('user_id', profile.id)
-          .gte('created_at', fourteenDaysAgo.toISOString())
-          .lt('created_at', sevenDaysAgo.toISOString()),
-      ]);
+      const { data: current, error } = await supabase
+        .from('emotion_logs')
+        .select('created_at, overall_mood, current_mood, stress, productivity, key_event')
+        .eq('user_id', profile.id)
+        .gte('created_at', sevenDaysAgo.toISOString())
+        .order('created_at', { ascending: false });
 
-      if (error1 || error2) return;
-
-      // Helpers for change calculation
-      function avg(vals: (number | null | undefined)[]) {
-        const n = vals.filter((v): v is number => typeof v === 'number');
-        return n.length ? n.reduce((a, b) => a + b, 0) / n.length : 0;
-      }
-      function uniqueDays(logs: RecentLog[]) {
-        return new Set(logs.map(l => l.created_at.split('T')[0])).size;
-      }
-      // Recent logs
-      setRecentActivity((current ?? []).slice(0, 3));
+      if (error) return;
 
       // Stats
       const moodsCurr = (current ?? []).map(l => l.overall_mood ?? l.current_mood);
       const stressCurr = (current ?? []).map(l => l.stress);
-      const daysCurr = uniqueDays(current ?? []);
-
-      const moodsPrev = (prev ?? []).map(l => l.overall_mood ?? l.current_mood);
-      const stressPrev = (prev ?? []).map(l => l.stress);
-      const daysPrev = uniqueDays(prev ?? []);
 
       setStats({
         checkInsThisWeek: current?.length ?? 0,
-        avgMood: parseFloat(avg(moodsCurr).toFixed(1)),
-        avgStress: parseFloat(avg(stressCurr).toFixed(1)),
-        daysActive: daysCurr,
-        checkInsChange: (current?.length ?? 0) - (prev?.length ?? 0),
-        moodChange: parseFloat((avg(moodsCurr) - avg(moodsPrev)).toFixed(1)),
-        stressChange: parseFloat((avg(stressCurr) - avg(stressPrev)).toFixed(1)),
-        daysChange: daysCurr - daysPrev,
+        avgMood: parseFloat(
+          (moodsCurr.filter((n): n is number => typeof n === 'number').reduce((a, b) => a + b, 0) /
+            (moodsCurr.filter((n): n is number => typeof n === 'number').length || 1)
+          ).toFixed(1)
+        ),
+        avgStress: parseFloat(
+          (stressCurr.filter((n): n is number => typeof n === 'number').reduce((a, b) => a + b, 0) /
+            (stressCurr.filter((n): n is number => typeof n === 'number').length || 1)
+          ).toFixed(1)
+        ),
       });
+
+      setRecentActivity((current ?? []).slice(0, 3));
     }
     fetchStats();
   }, [profile]);
@@ -151,29 +118,19 @@ export function Dashboard({ onNavigate }: DashboardProps) {
       label: 'Check-ins This Week',
       value: stats.checkInsThisWeek,
       icon: Calendar,
-      change: stats.checkInsChange > 0 ? `+${stats.checkInsChange}` : stats.checkInsChange.toString(),
     },
     {
       label: 'Avg Mood Score',
       value: stats.avgMood,
       icon: Heart,
-      change: stats.moodChange > 0 ? `+${stats.moodChange}` : stats.moodChange.toString(),
     },
     {
       label: 'Stress Level',
       value: stats.avgStress,
       icon: Activity,
-      change: stats.stressChange > 0 ? `+${stats.stressChange}` : stats.stressChange.toString(),
-    },
-    {
-      label: 'Days Active',
-      value: stats.daysActive,
-      icon: Clock,
-      change: stats.daysChange > 0 ? `+${stats.daysChange}` : stats.daysChange.toString(),
     },
   ];
 
-  // For emoji mood in recent activity
   function moodToEmoji(mood?: number | null) {
     if (mood == null) return '❓';
     const emojis = ['😢', '😕', '😐', '😊', '😄'];
@@ -200,16 +157,13 @@ export function Dashboard({ onNavigate }: DashboardProps) {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {statCards.map(({ label, value, icon: Icon, change }, index) => (
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+        {statCards.map(({ label, value, icon: Icon }, index) => (
           <div key={index} className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
             <div className="flex items-center justify-between mb-2">
               <div className="p-2 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg">
                 <Icon className="w-4 h-4 text-white" />
               </div>
-              <span className={`text-xs font-medium px-2 py-1 rounded-full ${Number(change) >= 0 ? 'text-green-600 bg-green-100' : 'text-red-600 bg-red-100'}`}>
-                {Number(change) > 0 ? `+${change}` : change}
-              </span>
             </div>
             <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-1">{value}</h3>
             <p className="text-sm text-gray-600 dark:text-gray-400">{label}</p>

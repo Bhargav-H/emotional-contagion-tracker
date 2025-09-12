@@ -24,15 +24,19 @@ export function Layout({ children, activeTab, onTabChange }: LayoutProps) {
   const [darkMode, setDarkMode] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
-  const navigationItems = [
+const navigationItems = [
     { id: 'dashboard', label: 'Dashboard', icon: Home },
     { id: 'checkin', label: 'Check-In', icon: Heart },
-    { id: 'history', label: 'My History', icon: BarChart3 },
-    ...(profile?.role === 'MANAGER' || profile?.role === 'ADMIN' 
-      ? [{ id: 'team', label: 'Team Insights', icon: Users }] 
-      : []
-    ),
-    { id: 'settings', label: 'Settings', icon: Settings },
+    { id: 'history', label: 'History', icon: BarChart3 },
+    // Show Team Insights for Managers and Admins
+    ...(profile?.role === 'MANAGER' || profile?.role === 'ADMIN' ? [
+      { id: 'team', label: 'Team Insights', icon: Users }
+    ] : []),
+    // Show Team Management only for Admin
+    ...(profile?.role === 'ADMIN' ? [
+      { id: 'team-management', label: 'Team Management', icon: Users }
+    ] : []),
+    { id: 'settings', label: 'Settings', icon: Settings }
   ]
 
   const handleSignOut = async () => {

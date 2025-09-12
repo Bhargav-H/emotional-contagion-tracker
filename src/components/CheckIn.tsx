@@ -9,15 +9,14 @@ export function CheckIn() {
   const [checkInType, setCheckInType] = useState<'quick' | 'detailed'>('quick')
   const [loading, setLoading] = useState(false)
 
-  // Quick check-in form state
+  // Quick check-in uses overall_mood now (NOT current_mood)
   const [quickForm, setQuickForm] = useState({
-    current_mood: 3,
+    overall_mood: 3,
     stress: 3,
     productivity: 5,
     from_interaction: false,
   })
 
-  // Detailed check-in form state
   const [detailedForm, setDetailedForm] = useState({
     overall_mood: 3,
     stress: 3,
@@ -30,13 +29,11 @@ export function CheckIn() {
     transmit_to: [] as string[],
   })
 
-  const moodEmojis = ['😢', '😕', '😐', '😊', '😄']
   const emotionSources = ['Leaders', 'Colleagues', 'Clients']
 
   const handleQuickSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!profile) return
-
     setLoading(true)
     try {
       const { error } = await supabase
@@ -44,19 +41,17 @@ export function CheckIn() {
         .insert({
           user_id: profile.id,
           team_id: profile.team_id,
-          current_mood: quickForm.current_mood,
+          overall_mood: quickForm.overall_mood, // changed from current_mood
           stress: quickForm.stress,
           productivity: quickForm.productivity,
           from_interaction: quickForm.from_interaction,
         })
-
       if (error) throw error
-      
+
       toast.success('Quick check-in completed! 🎉')
-      
-      // Reset form
+
       setQuickForm({
-        current_mood: 3,
+        overall_mood: 3,
         stress: 3,
         productivity: 5,
         from_interaction: false,
@@ -72,7 +67,6 @@ export function CheckIn() {
   const handleDetailedSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!profile) return
-
     setLoading(true)
     try {
       const { error } = await supabase
@@ -90,12 +84,10 @@ export function CheckIn() {
           absorb_from: detailedForm.absorb_from.length > 0 ? detailedForm.absorb_from : null,
           transmit_to: detailedForm.transmit_to.length > 0 ? detailedForm.transmit_to : null,
         })
-
       if (error) throw error
-      
+
       toast.success('Detailed check-in completed! 🎉')
-      
-      // Reset form
+
       setDetailedForm({
         overall_mood: 3,
         stress: 3,
@@ -121,7 +113,14 @@ export function CheckIn() {
       : [...sources, source]
   }
 
-  const ScaleInput = ({ label, value, onChange, min = 1, max = 5, icon: Icon }: {
+  const ScaleInput = ({
+    label,
+    value,
+    onChange,
+    min = 1,
+    max = 5,
+    icon: Icon,
+  }: {
     label: string
     value: number
     onChange: (value: number) => void
@@ -190,28 +189,20 @@ export function CheckIn() {
       {checkInType === 'quick' && (
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
           <form onSubmit={handleQuickSubmit} className="space-y-6">
-            {/* Current Mood */}
             <div className="space-y-4">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center space-x-2">
                 <Heart className="w-5 h-5" />
-                <span>How are you feeling right now?</span>
+                <span>Overall Mood</span>
               </h3>
-              <div className="flex items-center justify-between">
-                {moodEmojis.map((emoji, index) => (
-                  <button
-                    key={index}
-                    type="button"
-                    onClick={() => setQuickForm(prev => ({ ...prev, current_mood: index + 1 }))}
-                    className={`text-3xl p-2 rounded-lg transition-all ${
-                      quickForm.current_mood === index + 1
-                        ? 'bg-blue-100 dark:bg-blue-900 scale-110'
-                        : 'hover:bg-gray-100 dark:hover:bg-gray-700'
-                    }`}
-                  >
-                    {emoji}
-                  </button>
-                ))}
-              </div>
+              {/* Replaces old emoji picker with 1-5 slider */}
+              <ScaleInput
+                label=""
+                value={quickForm.overall_mood}
+                onChange={(value) => setQuickForm(prev => ({ ...prev, overall_mood: value }))}
+                min={1}
+                max={5}
+                icon={undefined}
+              />
             </div>
 
             {/* Scales */}
@@ -222,7 +213,6 @@ export function CheckIn() {
                 onChange={(value) => setQuickForm(prev => ({ ...prev, stress: value }))}
                 icon={Activity}
               />
-              
               <ScaleInput
                 label="Productivity"
                 value={quickForm.productivity}
@@ -329,7 +319,6 @@ export function CheckIn() {
                 <Users className="w-5 h-5" />
                 <span>Emotional Contagion</span>
               </h3>
-              
               <div className="grid md:grid-cols-2 gap-6">
                 {/* Absorbing Emotions */}
                 <div className="space-y-4">
@@ -349,10 +338,10 @@ export function CheckIn() {
                           <input
                             type="checkbox"
                             checked={detailedForm.absorb_from.includes(source)}
-                            onChange={(e) => {
+                            onChange={() => {
                               setDetailedForm(prev => ({
                                 ...prev,
-                                absorb_from: toggleEmotionSource(prev.absorb_from, source)
+                                absorb_from: toggleEmotionSource(prev.absorb_from, source),
                               }))
                             }}
                             className="mr-2"
@@ -382,10 +371,10 @@ export function CheckIn() {
                           <input
                             type="checkbox"
                             checked={detailedForm.transmit_to.includes(source)}
-                            onChange={(e) => {
+                            onChange={() => {
                               setDetailedForm(prev => ({
                                 ...prev,
-                                transmit_to: toggleEmotionSource(prev.transmit_to, source)
+                                transmit_to: toggleEmotionSource(prev.transmit_to, source),
                               }))
                             }}
                             className="mr-2"
