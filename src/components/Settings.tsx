@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { User, Bell, Shield, Palette, Save } from 'lucide-react'
+import { User, Save } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../lib/supabase'
 import toast from 'react-hot-toast'
@@ -27,7 +27,7 @@ export function Settings() {
         .eq('id', profile.id)
 
       if (error) throw error
-      
+
       toast.success('Profile updated successfully!')
     } catch (error) {
       console.error('Error updating profile:', error)
@@ -103,100 +103,6 @@ export function Settings() {
             <span>{loading ? 'Saving...' : 'Save Changes'}</span>
           </button>
         </form>
-      </div>
-
-      {/* Privacy Settings */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
-        <div className="flex items-center space-x-3 mb-6">
-          <Shield className="w-6 h-6 text-green-600" />
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Privacy & Security</h2>
-        </div>
-
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-medium text-gray-900 dark:text-white">Anonymous Check-ins</h3>
-              <p className="text-xs text-gray-500 dark:text-gray-400">Your check-ins will be anonymized in team reports</p>
-            </div>
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input type="checkbox" defaultChecked className="sr-only peer" />
-              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
-            </label>
-          </div>
-
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-medium text-gray-900 dark:text-white">Share Detailed Events</h3>
-              <p className="text-xs text-gray-500 dark:text-gray-400">Allow managers to see your key event descriptions</p>
-            </div>
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input type="checkbox" className="sr-only peer" />
-              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
-            </label>
-          </div>
-        </div>
-      </div>
-
-      {/* Notification Settings */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
-        <div className="flex items-center space-x-3 mb-6">
-          <Bell className="w-6 h-6 text-yellow-600" />
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Notifications</h2>
-        </div>
-
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-medium text-gray-900 dark:text-white">Daily Check-in Reminders</h3>
-              <p className="text-xs text-gray-500 dark:text-gray-400">Get reminded to complete your daily emotional check-in</p>
-            </div>
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input type="checkbox" defaultChecked className="sr-only peer" />
-              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
-            </label>
-          </div>
-
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-medium text-gray-900 dark:text-white">Weekly Summary</h3>
-              <p className="text-xs text-gray-500 dark:text-gray-400">Receive weekly insights about your emotional patterns</p>
-            </div>
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input type="checkbox" defaultChecked className="sr-only peer" />
-              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
-            </label>
-          </div>
-
-          {(profile?.role === 'MANAGER' || profile?.role === 'ADMIN') && (
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-sm font-medium text-gray-900 dark:text-white">Team Alerts</h3>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Get notified when team mood trends require attention</p>
-              </div>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input type="checkbox" defaultChecked className="sr-only peer" />
-                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
-              </label>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Appearance */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
-        <div className="flex items-center space-x-3 mb-6">
-          <Palette className="w-6 h-6 text-purple-600" />
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Appearance</h2>
-        </div>
-
-        <div className="space-y-4">
-          <div>
-            <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3">Theme</h3>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
-              Use the theme toggle in the sidebar to switch between light and dark modes.
-            </p>
-          </div>
-        </div>
       </div>
     </div>
   )

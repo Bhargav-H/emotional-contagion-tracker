@@ -16,8 +16,8 @@ export function CheckIn() {
     key_event: '',
     absorb_frequency: 3,
     transmit_frequency: 3,
-    absorb_from: '',      // Changed from array to string
-    transmit_to: '',      // Changed from array to string
+    absorb_valence: '',   // updated field
+    transmit_valence: '', // updated field
   })
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -38,8 +38,8 @@ export function CheckIn() {
           key_event: form.key_event || null,
           absorb_frequency: form.absorb_frequency,
           transmit_frequency: form.transmit_frequency,
-          absorb_from: form.absorb_from || null,
-          transmit_to: form.transmit_to || null,
+          absorb_valence: form.absorb_valence || null,
+          transmit_valence: form.transmit_valence || null,
         })
       if (error) throw error
 
@@ -53,8 +53,8 @@ export function CheckIn() {
         key_event: '',
         absorb_frequency: 3,
         transmit_frequency: 3,
-        absorb_from: '',
-        transmit_to: '',
+        absorb_valence: '',
+        transmit_valence: '',
       })
     } catch (error) {
       console.error('Error submitting check-in:', error)
@@ -170,16 +170,18 @@ export function CheckIn() {
                   onChange={v => setForm(f => ({ ...f, absorb_frequency: v }))}
                 />
                 <label className="block mt-4 mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Who do you most often absorb emotions from?
+                  What type of emotions do you mostly absorb?
                 </label>
-                <textarea
-                  value={form.absorb_from}
-                  onChange={e => setForm(f => ({ ...f, absorb_from: e.target.value }))}
-                  rows={2}
-                  placeholder="Type people or sources here..."
-                  className="w-full min-h-[40px] p-3 border border-gray-300 rounded-md resize-none dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                  style={{ minHeight: '48px' }}
-                />
+                <select
+                  value={form.absorb_valence || ''}
+                  onChange={e => setForm(f => ({ ...f, absorb_valence: e.target.value }))}
+                  className="w-full p-3 border border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                >
+                  <option value="">Select...</option>
+                  <option value="POSITIVE">Positive</option>
+                  <option value="NEGATIVE">Negative</option>
+                  <option value="MIXED">Mixed</option>
+                </select>
               </div>
               {/* Transmitting */}
               <div>
@@ -189,16 +191,18 @@ export function CheckIn() {
                   onChange={v => setForm(f => ({ ...f, transmit_frequency: v }))}
                 />
                 <label className="block mt-4 mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Who do you most often transmit emotions to?
+                  What type of emotions do you mostly transmit?
                 </label>
-                <textarea
-                  value={form.transmit_to}
-                  onChange={e => setForm(f => ({ ...f, transmit_to: e.target.value }))}
-                  rows={2}
-                  placeholder="Type people or groups here..."
-                  className="w-full min-h-[40px] p-3 border border-gray-300 rounded-md resize-none dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                  style={{ minHeight: '48px' }}
-                />
+                <select
+                  value={form.transmit_valence || ''}
+                  onChange={e => setForm(f => ({ ...f, transmit_valence: e.target.value }))}
+                  className="w-full p-3 border border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                >
+                  <option value="">Select...</option>
+                  <option value="POSITIVE">Positive</option>
+                  <option value="NEGATIVE">Negative</option>
+                  <option value="MIXED">Mixed</option>
+                </select>
               </div>
             </div>
           </div>

@@ -60,7 +60,7 @@ export function Login() {
               {isLogin ? 'Welcome back' : 'Create account'}
             </h2>
             <p className="text-gray-600 dark:text-gray-400">
-              {isLogin ? 'Sign in to your account' : 'Start tracking your team\'s emotional health'}
+              {isLogin ? 'Sign in to your account' : "Start tracking your team's emotional health"}
             </p>
           </div>
 
@@ -141,7 +141,6 @@ export function Login() {
                 >
                   <option value="EMPLOYEE">Employee</option>
                   <option value="MANAGER">Manager</option>
-                  <option value="ADMIN">Admin</option>
                 </select>
               </div>
             )}
@@ -169,8 +168,8 @@ export function Login() {
         {/* <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
           <p className="text-sm text-blue-700 dark:text-blue-300 font-medium mb-2">Demo Credentials:</p>
           <p className="text-xs text-blue-600 dark:text-blue-400">
-            Employee: employee@demo.com / password<br />
-            Manager: manager@demo.com / password
+            Employee: [employee@demo.com](mailto:employee@demo.com) / password<br />
+            Manager: [manager@demo.com](mailto:manager@demo.com) / password
           </p>
         </div> */}
       </div>
