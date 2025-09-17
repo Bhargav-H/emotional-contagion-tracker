@@ -41,34 +41,30 @@ export function TeamInsights() {
 
   useEffect(() => {
     if (profile && (profile.role === 'ADMIN' || profile.role === 'MANAGER')) {
-      fetchTeamData()
+      fetchData()
     }
   }, [profile, timeRange])
 
-  async function fetchTeamData() {
+  async function fetchData() {
     if (!profile || (profile.role !== 'ADMIN' && profile.role !== 'MANAGER')) {
       return
     }
 
     setLoading(true)
-
     try {
       let teamId: string | null = null
 
       if (profile.role === 'ADMIN') {
         teamId = profile.team_id
       } else if (profile.role === 'MANAGER') {
-        // fetch team where this manager is assigned
-        const { data: managedTeam, error: managedTeamError } = await supabase
+        const { data, error } = await supabase
           .from('teams')
           .select('id')
           .eq('manager_id', profile.id)
           .limit(1)
           .single()
-
-        if (managedTeamError) throw managedTeamError
-
-        teamId = managedTeam?.id ?? null
+        if (error) throw error
+        teamId = data?.id ?? null
       }
 
       if (!teamId) {
@@ -80,90 +76,74 @@ export function TeamInsights() {
 
       const startDate = subDays(new Date(), timeRange).toISOString()
 
-      // fetch emotion logs for team
       const { data: logs, error: logsError } = await supabase
         .from('emotion_logs')
         .select('created_at, overall_mood, current_mood, stress, productivity')
         .eq('team_id', teamId)
         .gte('created_at', startDate)
         .order('created_at', { ascending: true })
-
       if (logsError) throw logsError
 
       const dailyMap: Record<string, { moods: number[]; stress: number[]; productivity: number[] }> = {}
 
-      logs?.forEach((log) => {
-        const dateStr = format(parseISO(log.created_at), 'yyyy-MM-dd')
-        if (!dailyMap[dateStr]) {
-          dailyMap[dateStr] = { moods: [], stress: [], productivity: [] }
+      logs?.forEach(log => {
+        const dateKey = format(parseISO(log.created_at), 'yyyy-MM-dd')
+        if (!(dateKey in dailyMap)) {
+          dailyMap[dateKey] = { moods: [], stress: [], productivity: [] }
         }
-
         const mood = log.overall_mood ?? log.current_mood
-        if (typeof mood === 'number') dailyMap[dateStr].moods.push(mood)
-        if (typeof log.stress === 'number') dailyMap[dateStr].stress.push(log.stress)
-        if (typeof log.productivity === 'number') dailyMap[dateStr].productivity.push(log.productivity)
+        if (typeof mood === 'number') dailyMap[dateKey].moods.push(mood)
+        if (typeof log.stress === 'number') dailyMap[dateKey].stress.push(log.stress)
+        if (typeof log.productivity === 'number') dailyMap[dateKey].productivity.push(log.productivity)
       })
 
       const aggregated = Object.entries(dailyMap)
         .map(([date, vals]) => {
-          const avg = (arr: number[]) => (arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0)
+          const average = (arr: number[]) => (arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0)
           return {
             date: format(parseISO(date), 'MMM dd'),
-            avg_mood: avg(vals.moods),
-            avg_stress: avg(vals.stress),
-            avg_productivity: avg(vals.productivity),
+            avg_mood: average(vals.moods),
+            avg_stress: average(vals.stress),
+            avg_productivity: average(vals.productivity),
             count: vals.moods.length,
           }
         })
-        .filter((entry) => entry.count > 0)
-
+        .filter(d => d.count > 0)
       setTeamLogs(aggregated)
 
-      // fetch users with nested emotion_logs (no order here)
-      const { data: usersWithLogs, error: usersError } = await supabase
+      const { data: users, error: usersError } = await supabase
         .from('users')
-        .select(`
-          id,
-          name,
-          emotion_logs (
-            overall_mood,
-            current_mood,
-            created_at
-          )
-        `)
+        .select(`id, name, emotion_logs (overall_mood, current_mood, created_at)`)
         .eq('team_id', teamId)
-
       if (usersError) throw usersError
 
-      type UserWithLogs = typeof usersWithLogs[0] & { emotion_logs: typeof usersWithLogs[0]['emotion_logs'] }
+      type UserWithLogs = typeof users[0]
+
       const processedMembers: TeamMember[] = []
       const seen = new Set<string>()
 
-      usersWithLogs?.forEach((user: UserWithLogs) => {
+      users?.forEach((user: UserWithLogs, idx) => {
         if (!user || seen.has(user.id)) return
+        const logs = user.emotion_logs ?? []
+        if (logs.length === 0) return
 
-        // client-side sort of emotion_logs by date desc
-        const sortedLogs = (user.emotion_logs ?? []).slice().sort(
-          (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-        )
+        // Sort logs descending
+        const sortedLogs = logs.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        const latest = sortedLogs[0]
 
-        if (sortedLogs.length === 0) return
-
-        const latestLog = sortedLogs[0]
-
+        // Add anonymized name
         processedMembers.push({
           id: user.id,
-          name: user.name,
-          avg_mood: latestLog.overall_mood ?? latestLog.current_mood ?? 0,
-          last_checkin: latestLog.created_at,
+          name: `Member ${idx + 1}`,
+          avg_mood: latest.overall_mood ?? latest.current_mood ?? 0,
+          last_checkin: latest.created_at,
         })
-
         seen.add(user.id)
       })
 
       setTeamMembers(processedMembers)
-    } catch (error) {
-      console.error('Error fetching team data:', error)
+    } catch (err) {
+      console.error(err)
       setTeamLogs([])
       setTeamMembers([])
     } finally {
@@ -177,33 +157,30 @@ export function TeamInsights() {
     productivity: teamLogs.length ? teamLogs.reduce((sum, l) => sum + l.avg_productivity, 0) / teamLogs.length : 0,
   }
 
-  const getColor = (val: number) => {
-    if (val >= 4) return '#10B981'
-    if (val >= 3) return '#FBBF24'
+  const getColor = (value: number) => {
+    if (value >= 4) return '#10B981'
+    if (value >= 3) return '#FBBF24'
     return '#EF4444'
   }
 
   const CustomTooltip = ({ active, payload, label }: any) => {
-    if (active && payload && payload.length) {
-      return (
-        <div className="bg-white dark:bg-gray-800 p-3 rounded shadow border border-gray-300 dark:border-gray-700">
-          <p className="font-semibold">{label}</p>
-          {payload.map((entry: any, idx: number) => (
-            <p key={idx} style={{ color: entry.color }} className="text-sm">
-              {entry.dataKey === 'avg_mood' && 'Mood: '}
-              {entry.dataKey === 'avg_stress' && 'Stress: '}
-              {entry.dataKey === 'avg_productivity' && 'Productivity: '}
-              {entry.value.toFixed(2)}
-            </p>
-          ))}
-        </div>
-      )
-    }
-    return null
+    if (!active || !payload || payload.length === 0) return null
+    return (
+      <div className="bg-white dark:bg-gray-800 p-3 rounded shadow border border-gray-300 dark:border-gray-700">
+        <p className="font-semibold">{label}</p>
+        {payload.map((entry: any, i: number) => (
+          <p key={i} className="text-sm" style={{ color: entry.color }}>
+            {entry.dataKey === 'avg_mood' && 'Mood: '}
+            {entry.dataKey === 'avg_stress' && 'Stress: '}
+            {entry.dataKey === 'avg_productivity' && 'Productivity: '}
+            {entry.value.toFixed(2)}
+          </p>
+        ))}
+      </div>
+    )
   }
 
   if (!profile) return <div>Loading...</div>
-
   if (profile.role !== 'ADMIN' && profile.role !== 'MANAGER')
     return (
       <div className="text-center mt-40">
@@ -211,7 +188,6 @@ export function TeamInsights() {
         <p className="text-gray-600 dark:text-gray-400">Access denied.</p>
       </div>
     )
-
   if (loading)
     return (
       <div className="flex justify-center mt-40">
@@ -224,13 +200,13 @@ export function TeamInsights() {
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Team Insights</h1>
-          <p className="text-gray-600 dark:text-gray-400">Monitor your team’s emotional well-being</p>
+          <p className="text-gray-600 dark:text-gray-400">Monitor your team's emotional well-being</p>
         </div>
         <div className="flex items-center space-x-2">
           <Calendar size={20} className="text-gray-500" />
           <select
             value={timeRange}
-            onChange={e => setTimeRange(parseInt(e.target.value))}
+            onChange={(e) => setTimeRange(parseInt(e.target.value))}
             className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 py-1 text-sm text-gray-900 dark:text-white"
           >
             <option value={7}>Last 7 days</option>
@@ -249,16 +225,16 @@ export function TeamInsights() {
       </div>
 
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-        {teamLogs.length > 0 ? (
+        {teamLogs.length ? (
           <ResponsiveContainer width="100%" height={300}>
             <LineChart data={teamLogs}>
               <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.25} />
               <XAxis dataKey="date" />
               <YAxis domain={[0, 10]} />
               <Tooltip content={<CustomTooltip />} />
-              <Line type="monotone" dataKey="avg_mood" stroke="#EC4899" strokeWidth={3} activeDot={{ r: 7 }} dot={{ r: 4 }} />
-              <Line type="monotone" dataKey="avg_stress" stroke="#EF4444" strokeWidth={3} activeDot={{ r: 7 }} dot={{ r: 4 }} />
-              <Line type="monotone" dataKey="avg_productivity" stroke="#10B981" strokeWidth={3} activeDot={{ r: 7 }} dot={{ r: 4 }} />
+              <Line dataKey="avg_mood" stroke="#EC4899" strokeWidth={3} activeDot={{ r: 7 }} dot={{ r: 4 }} />
+              <Line dataKey="avg_stress" stroke="#EF4444" strokeWidth={3} activeDot={{ r: 7 }} dot={{ r: 4 }} />
+              <Line dataKey="avg_productivity" stroke="#10B981" strokeWidth={3} activeDot={{ r: 7 }} dot={{ r: 4 }} />
             </LineChart>
           </ResponsiveContainer>
         ) : (
@@ -266,23 +242,25 @@ export function TeamInsights() {
         )}
       </div>
 
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+      <div>
         <h2 className="text-xl font-semibold mb-4">Team Members Status</h2>
         {teamMembers.length === 0 ? (
           <div className="text-center text-gray-500 dark:text-gray-400 py-10">No team members found.</div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {teamMembers.map(member => (
+            {teamMembers.map((member, idx) => (
               <div key={member.id} className="p-4 bg-gray-100 dark:bg-gray-700 rounded-md shadow">
                 <div className="flex justify-between items-center mb-2">
-                  <h3 className="font-semibold">{member.name}</h3>
-                  <div title={`Mood: ${member.avg_mood.toFixed(2)} / 5`} style={{ backgroundColor: getColor(member.avg_mood) }} className="w-4 h-4 rounded-full" />
+                  <h3 className="font-semibold">Member {idx + 1}</h3>
+                  <div
+                    title={`Mood: ${member.avg_mood.toFixed(2)}`}
+                    style={{ backgroundColor: getColor(member.avg_mood) }}
+                    className="w-4 h-4 rounded-full"
+                  />
                 </div>
-                <p>Latest mood: {member.avg_mood.toFixed(2)} / 5</p>
+                <p>Latest Mood: {member.avg_mood.toFixed(2)}</p>
                 {member.last_checkin && (
-                  <p className="text-sm text-gray-500">
-                    Last check-in: {format(parseISO(member.last_checkin), 'MMM dd, yyyy')}
-                  </p>
+                  <p className="text-sm text-gray-500">{format(parseISO(member.last_checkin), 'MMM dd, yyyy')}</p>
                 )}
               </div>
             ))}
@@ -293,7 +271,17 @@ export function TeamInsights() {
   )
 }
 
-function SummaryCard({ title, value, icon: Icon, color }: { title: string; value: number | string; icon?: React.ComponentType<any>; color?: string }) {
+function SummaryCard({
+  title,
+  value,
+  icon: Icon,
+  color,
+}: {
+  title: string
+  value: string | number
+  icon?: React.ComponentType<any>
+  color?: string
+}) {
   return (
     <div className="bg-white dark:bg-gray-800 rounded-md shadow p-4">
       <div className="flex justify-between items-center mb-2">

@@ -67,12 +67,12 @@ export function Dashboard({ onNavigate }: DashboardProps) {
         checkInsThisWeek: current?.length ?? 0,
         avgMood: parseFloat(
           (moodsCurr.filter((n): n is number => typeof n === 'number').reduce((a, b) => a + b, 0) /
-            (moodsCurr.filter((n): n is number => typeof n === 'number').length || 1)
+          (moodsCurr.filter((n): n is number => typeof n === 'number').length || 1)
           ).toFixed(1)
         ),
         avgStress: parseFloat(
           (stressCurr.filter((n): n is number => typeof n === 'number').reduce((a, b) => a + b, 0) /
-            (stressCurr.filter((n): n is number => typeof n === 'number').length || 1)
+          (stressCurr.filter((n): n is number => typeof n === 'number').length || 1)
           ).toFixed(1)
         ),
       });
@@ -82,20 +82,15 @@ export function Dashboard({ onNavigate }: DashboardProps) {
     fetchStats();
   }, [profile]);
 
+  const singleCheckInAction = () => onNavigate('checkin');
+
   const quickActions: ActionCardProps[] = [
     {
-      title: 'Quick Check-In',
-      description: 'Log your current mood and stress level',
+      title: 'Check In',
+      description: 'Log your current emotional state',
       icon: Heart,
-      action: () => onNavigate('checkin'),
+      action: singleCheckInAction,
       color: 'from-pink-500 to-rose-500',
-    },
-    {
-      title: 'Detailed Check-In',
-      description: 'Complete emotional assessment with insights',
-      icon: Activity,
-      action: () => onNavigate('checkin'),
-      color: 'from-blue-500 to-cyan-500',
     },
     {
       title: 'View History',
@@ -134,7 +129,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
   function moodToEmoji(mood?: number | null) {
     if (mood == null) return '❓';
     const emojis = ['😢', '😕', '😐', '😊', '😄'];
-    return emojis[Math.max(0, Math.min(4, mood - 1))];
+    return emojis[Math.max(0, Math.min(4, (mood ?? 1) - 1))];
   }
 
   return (
@@ -200,7 +195,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                 <div className="text-2xl">{moodToEmoji(log.overall_mood ?? log.current_mood)}</div>
                 <div className="flex-1">
                   <p className="text-sm font-medium text-gray-900 dark:text-white">
-                    {log.key_event ? log.key_event : 'Emotional check-in recorded'}
+                    {log.key_event ?? 'Emotional check-in recorded'}
                   </p>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
                     {new Date(log.created_at).toLocaleString()}
