@@ -76,6 +76,11 @@ export type Database = {
           transmit_to: string[] | null
           anonymized: boolean
           created_at: string
+
+          // ✅ Newly added fields
+          team_interaction_mode: 'Chat' | 'Voice' | 'In-person' | 'Hybrid' | null
+          time_spent_with_team_today: number | null
+          perceived_team_mood: number | null
         }
         Insert: {
           id?: string
@@ -94,6 +99,11 @@ export type Database = {
           transmit_to?: string[] | null
           anonymized?: boolean
           created_at?: string
+
+          // ✅ Newly added fields
+          team_interaction_mode?: 'Chat' | 'Voice' | 'In-person' | 'Hybrid' | null
+          time_spent_with_team_today?: number | null
+          perceived_team_mood?: number | null
         }
         Update: {
           id?: string
@@ -112,6 +122,11 @@ export type Database = {
           transmit_to?: string[] | null
           anonymized?: boolean
           created_at?: string
+
+          // ✅ Newly added fields
+          team_interaction_mode?: 'Chat' | 'Voice' | 'In-person' | 'Hybrid' | null
+          time_spent_with_team_today?: number | null
+          perceived_team_mood?: number | null
         }
       }
     }

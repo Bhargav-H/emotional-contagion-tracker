@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Heart, Activity, Zap, Users, MessageSquare, Save } from 'lucide-react'
+import { Heart, Activity, Zap, Users, MessageSquare, Save, Clock, MonitorSmartphone } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../lib/supabase'
 import toast from 'react-hot-toast'
@@ -16,8 +16,11 @@ export function CheckIn() {
     key_event: '',
     absorb_frequency: 3,
     transmit_frequency: 3,
-    absorb_valence: '',   // updated field
-    transmit_valence: '', // updated field
+    absorb_valence: '',
+    transmit_valence: '',
+    team_interaction_mode: '', // New
+    time_spent_with_team_today: '', // New
+    perceived_team_mood: 3, // New
   })
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -26,21 +29,23 @@ export function CheckIn() {
 
     setLoading(true)
     try {
-      const { error } = await supabase
-        .from('emotion_logs')
-        .insert({
-          user_id: profile.id,
-          team_id: profile.team_id,
-          overall_mood: form.overall_mood,
-          stress: form.stress,
-          workload: form.workload,
-          productivity: form.productivity,
-          key_event: form.key_event || null,
-          absorb_frequency: form.absorb_frequency,
-          transmit_frequency: form.transmit_frequency,
-          absorb_valence: form.absorb_valence || null,
-          transmit_valence: form.transmit_valence || null,
-        })
+      const { error } = await supabase.from('emotion_logs').insert({
+        user_id: profile.id,
+        team_id: profile.team_id,
+        overall_mood: form.overall_mood,
+        stress: form.stress,
+        workload: form.workload,
+        productivity: form.productivity,
+        key_event: form.key_event || null,
+        absorb_frequency: form.absorb_frequency,
+        transmit_frequency: form.transmit_frequency,
+        absorb_valence: form.absorb_valence || null,
+        transmit_valence: form.transmit_valence || null,
+        team_interaction_mode: form.team_interaction_mode || null,
+        time_spent_with_team_today: form.time_spent_with_team_today ? Number(form.time_spent_with_team_today) : null,
+        perceived_team_mood: form.perceived_team_mood,
+      })
+
       if (error) throw error
 
       toast.success('Check-in completed! 🎉')
@@ -55,6 +60,9 @@ export function CheckIn() {
         transmit_frequency: 3,
         absorb_valence: '',
         transmit_valence: '',
+        team_interaction_mode: '',
+        time_spent_with_team_today: '',
+        perceived_team_mood: 3,
       })
     } catch (error) {
       console.error('Error submitting check-in:', error)
@@ -111,6 +119,7 @@ export function CheckIn() {
 
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-300 dark:border-gray-700 p-8">
         <form onSubmit={handleSubmit} className="space-y-8">
+          {/* --- Overall Assessment --- */}
           <div>
             <h2 className="text-lg font-semibold mb-6">Overall Assessment</h2>
             <div className="grid md:grid-cols-2 gap-6">
@@ -142,6 +151,7 @@ export function CheckIn() {
             </div>
           </div>
 
+          {/* --- Key Event --- */}
           <div>
             <label className="flex items-center gap-2 mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
               <MessageSquare className="w-4 h-4" />
@@ -156,6 +166,7 @@ export function CheckIn() {
             />
           </div>
 
+          {/* --- Emotional Contagion --- */}
           <div>
             <h2 className="flex items-center gap-2 text-lg font-semibold mb-6 text-gray-900 dark:text-white">
               <Users className="w-5 h-5" />
@@ -183,6 +194,7 @@ export function CheckIn() {
                   <option value="MIXED">Mixed</option>
                 </select>
               </div>
+
               {/* Transmitting */}
               <div>
                 <ScaleInput
@@ -207,6 +219,61 @@ export function CheckIn() {
             </div>
           </div>
 
+          {/* --- New Section: Interaction Context --- */}
+          <div>
+            <h2 className="flex items-center gap-2 text-lg font-semibold mb-6 text-gray-900 dark:text-white">
+              <MonitorSmartphone className="w-5 h-5" />
+              Team Interaction Context
+            </h2>
+            <div className="grid md:grid-cols-2 gap-8">
+              <div>
+                <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                  How did you mostly interact with your team today?
+                </label>
+                <select
+                  value={form.team_interaction_mode}
+                  onChange={e => setForm(f => ({ ...f, team_interaction_mode: e.target.value }))}
+                  className="w-full p-3 border border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                >
+                  <option value="">Select...</option>
+                  <option value="Chat">Chat</option>
+                  <option value="Voice">Voice</option>
+                  <option value="In-person">In-person</option>
+                  <option value="Hybrid">Hybrid</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Approximately how many hours did you spend interacting with your team today?
+                </label>
+                <div className="flex items-center gap-3">
+                  <Clock className="w-4 h-4 text-gray-500" />
+                  <input
+                    type="number"
+                    min={0}
+                    step={0.5}
+                    value={form.time_spent_with_team_today}
+                    onChange={e => setForm(f => ({ ...f, time_spent_with_team_today: e.target.value }))}
+                    placeholder="e.g. 3.5"
+                    className="w-full p-3 border border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-6">
+              <ScaleInput
+                label="How would you rate your team's overall mood today?"
+                value={form.perceived_team_mood}
+                onChange={v => setForm(f => ({ ...f, perceived_team_mood: v }))}
+                min={1}
+                max={5}
+              />
+            </div>
+          </div>
+
+          {/* --- Submit Button --- */}
           <button
             type="submit"
             disabled={loading}
