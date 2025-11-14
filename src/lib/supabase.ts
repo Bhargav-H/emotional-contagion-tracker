@@ -38,6 +38,7 @@ export type Database = {
           created_at?: string
         }
       }
+
       teams: {
         Row: {
           id: string
@@ -58,13 +59,13 @@ export type Database = {
           created_at?: string
         }
       }
+
       emotion_logs: {
         Row: {
           id: string
           user_id: string
           team_id: string | null
           overall_mood: number | null
-          current_mood: number | null
           stress: number
           workload: number | null
           productivity: number
@@ -77,7 +78,6 @@ export type Database = {
           anonymized: boolean
           created_at: string
 
-          // ✅ Newly added fields
           team_interaction_mode: 'Chat' | 'Voice' | 'In-person' | 'Hybrid' | null
           time_spent_with_team_today: number | null
           perceived_team_mood: number | null
@@ -87,7 +87,6 @@ export type Database = {
           user_id: string
           team_id?: string | null
           overall_mood?: number | null
-          current_mood?: number | null
           stress: number
           workload?: number | null
           productivity: number
@@ -100,7 +99,6 @@ export type Database = {
           anonymized?: boolean
           created_at?: string
 
-          // ✅ Newly added fields
           team_interaction_mode?: 'Chat' | 'Voice' | 'In-person' | 'Hybrid' | null
           time_spent_with_team_today?: number | null
           perceived_team_mood?: number | null
@@ -110,7 +108,6 @@ export type Database = {
           user_id?: string
           team_id?: string | null
           overall_mood?: number | null
-          current_mood?: number | null
           stress?: number
           workload?: number | null
           productivity?: number
@@ -123,7 +120,6 @@ export type Database = {
           anonymized?: boolean
           created_at?: string
 
-          // ✅ Newly added fields
           team_interaction_mode?: 'Chat' | 'Voice' | 'In-person' | 'Hybrid' | null
           time_spent_with_team_today?: number | null
           perceived_team_mood?: number | null
