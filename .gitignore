@@ -29,3 +29,4 @@ backend/venv/
 *.safetensors
 *.bin
 *.dll
+*.pyc

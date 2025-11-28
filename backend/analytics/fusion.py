@@ -13,18 +13,21 @@ semantic_pairs = {
 def fusion_label_multilabel_enhanced(ml_probs_dict, rule_label, rule_conf, threshold=0.5):
     boosted = ml_probs_dict.copy()
 
-    # fusion
-    boosted[rule_label] = 0.7 * boosted.get(rule_label,0) + 0.3 * rule_conf
+    # fusion weighting (sadness gets special heavier rule influence)
+    if rule_label == "sadness":
+        boosted[rule_label] = 0.4 * boosted.get(rule_label,0) + 0.6 * rule_conf
+    else:
+        boosted[rule_label] = 0.7 * boosted.get(rule_label,0) + 0.3 * rule_conf
 
-    # semantic boost
+    # semantic similarity propagation
     for rel in semantic_pairs.get(rule_label,[]):
-        boosted[rel] = min(boosted.get(rel,0) + 0.15*rule_conf, 1.0)
+        boosted[rel] = min(boosted.get(rel,0) + 0.15 * rule_conf, 1.0)
 
     # normalize
     max_prob = max(boosted.values()) or 1e-6
     boosted = {k: min(v/max_prob,1.0) for k,v in boosted.items()}
 
-    # active labels
+    # threshold-based multilabel activation
     active = [k for k,v in boosted.items() if v >= threshold]
 
     if not active:
