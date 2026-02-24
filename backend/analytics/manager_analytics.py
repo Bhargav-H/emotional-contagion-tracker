@@ -175,6 +175,43 @@ def compute_emotion_distribution(df):
     return {str(k): float(v) for k, v in vc.to_dict().items()}
 
 # --------------------------------------------------------
+# 1B) Soft ML probability-based Emotion Distribution (new)
+# --------------------------------------------------------
+
+def compute_emotion_distribution_soft(df):
+    """
+    Returns a full 7-way emotion distribution by summing ml_probs.
+    Ensures love and sadness appear even if final_label does not.
+    """
+    if "ml_probs" not in df.columns:
+        # fallback to final_label distribution
+        return compute_emotion_distribution(df)
+
+    emotions = ["anger", "fear", "joy", "sadness", "surprise", "love", "trust"]
+    totals = {e: 0.0 for e in emotions}
+
+    for _, row in df.iterrows():
+        probs = row.get("ml_probs", None)
+        # handle if ml_probs stored as string (JSON) by attempting to parse
+        if isinstance(probs, str):
+            try:
+                import json
+                probs_parsed = json.loads(probs)
+                probs = probs_parsed if isinstance(probs_parsed, dict) else None
+            except Exception:
+                probs = None
+        if isinstance(probs, dict):
+            for e, p in probs.items():
+                if e in totals:
+                    try:
+                        totals[e] += float(p)
+                    except Exception:
+                        continue
+
+    total_sum = sum(totals.values()) or 1.0
+    return {e: totals[e] / total_sum for e in emotions}
+
+# --------------------------------------------------------
 # 2) Contagion Events
 # --------------------------------------------------------
 
@@ -506,7 +543,8 @@ def run_full_analytics(df):
     df = ensure_date(df)
 
     # Basic metrics
-    emotion_distribution = compute_emotion_distribution(df)
+    # use soft ML-prob distribution so all 7 emotions are visible in analytics
+    emotion_distribution = compute_emotion_distribution_soft(df)
     contagion_events = compute_contagion_events(df)
     top_trigger_terms = compute_top_trigger_terms(df)
     interaction_summary = compute_interaction_mode_summary(df)
