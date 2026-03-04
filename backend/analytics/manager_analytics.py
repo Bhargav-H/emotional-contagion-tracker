@@ -17,7 +17,6 @@ import math
 
 def clean_json(obj):
     """Recursively sanitise any object into JSON-safe Python types."""
-    # numpy scalar -> python scalar
     if isinstance(obj, (np.integer,)):
         return int(obj)
     if isinstance(obj, (np.floating,)):
@@ -27,31 +26,25 @@ def clean_json(obj):
     if isinstance(obj, (np.bool_,)):
         return bool(obj)
 
-    # pandas NA
     if obj is pd.NA:
         return None
 
-    # dict
     if isinstance(obj, dict):
         return {str(k): clean_json(v) for k, v in obj.items()}
 
-    # list / tuple / set
     if isinstance(obj, (list, tuple, set)):
         return [clean_json(v) for v in obj]
 
-    # pandas Series/DataFrame -> convert to list/dict
     if isinstance(obj, pd.Series):
         return clean_json(obj.tolist())
     if isinstance(obj, pd.DataFrame):
         return clean_json(obj.to_dict(orient="records"))
 
-    # float (python)
     if isinstance(obj, float):
         if math.isnan(obj) or math.isinf(obj):
             return 0.0
         return obj
 
-    # int, str, bool, None
     return obj
 
 # --------------------------------------------------------
@@ -60,13 +53,11 @@ def clean_json(obj):
 
 def safe_col(df, col, dtype=float, default=np.nan):
     if col in df.columns:
-        # For dtype=str we avoid astype(float) errors; caller may pass dtype=str
         if dtype == str:
             return df[col].astype(str)
         try:
             return df[col].astype(dtype)
         except Exception:
-            # fallback: return raw series (object) and let callers coerce
             return df[col]
     return pd.Series([default] * len(df), index=df.index)
 
@@ -99,7 +90,6 @@ def parse_time_spent(val):
 
     s = s.replace(",", "").strip()
 
-    # 1) range with units
     m = re.search(r'(\d+(?:\.\d+)?)\s*[-–to]+\s*(\d+(?:\.\d+)?)\s*(hours|hour|hrs|hr|h|minutes|mins|min|m)?', s)
     if m:
         a = float(m.group(1))
@@ -111,17 +101,14 @@ def parse_time_spent(val):
         else:
             return midpoint
 
-    # single value with hours
     m = re.search(r'(\d+(?:\.\d+)?)\s*(hours|hour|hrs|hr|h)\b', s)
     if m:
         return float(m.group(1)) * 60.0
 
-    # single value with minutes
     m = re.search(r'(\d+(?:\.\d+)?)\s*(minutes|mins|min|m)\b', s)
     if m:
         return float(m.group(1))
 
-    # less than / under / < ...
     m = re.search(r'(?:less than|under|<)\s*(\d+(?:\.\d+)?)\s*(hours|hour|hrs|hr|h|minutes|mins|min|m)?', s)
     if m:
         bound = float(m.group(1))
@@ -131,7 +118,6 @@ def parse_time_spent(val):
         else:
             return bound / 2.0
 
-    # more than / over / >
     m = re.search(r'(?:more than|over|>|>=)\s*(\d+(?:\.\d+)?)\s*(hours|hour|hrs|hr|h|minutes|mins|min|m)?', s)
     if m:
         bound = float(m.group(1))
@@ -141,7 +127,6 @@ def parse_time_spent(val):
         else:
             return bound * 1.25
 
-    # pure number
     m = re.fullmatch(r'(\d+(?:\.\d+)?)', s)
     if m:
         v = float(m.group(1))
@@ -149,7 +134,6 @@ def parse_time_spent(val):
             return v * 60.0
         return v
 
-    # fallback: look for number and presence of 'hour'
     m = re.search(r'(\d+(?:\.\d+)?)', s)
     if m:
         v = float(m.group(1))
@@ -175,16 +159,11 @@ def compute_emotion_distribution(df):
     return {str(k): float(v) for k, v in vc.to_dict().items()}
 
 # --------------------------------------------------------
-# 1B) Soft ML probability-based Emotion Distribution (new)
+# 1B) Soft ML probability-based Emotion Distribution
 # --------------------------------------------------------
 
 def compute_emotion_distribution_soft(df):
-    """
-    Returns a full 7-way emotion distribution by summing ml_probs.
-    Ensures love and sadness appear even if final_label does not.
-    """
     if "ml_probs" not in df.columns:
-        # fallback to final_label distribution
         return compute_emotion_distribution(df)
 
     emotions = ["anger", "fear", "joy", "sadness", "surprise", "love", "trust"]
@@ -192,7 +171,6 @@ def compute_emotion_distribution_soft(df):
 
     for _, row in df.iterrows():
         probs = row.get("ml_probs", None)
-        # handle if ml_probs stored as string (JSON) by attempting to parse
         if isinstance(probs, str):
             try:
                 import json
@@ -309,7 +287,7 @@ def compute_correlation_matrix(df):
     return corr.to_dict()
 
 # --------------------------------------------------------
-# Research Metrics (existing)
+# Research Metrics
 # --------------------------------------------------------
 
 def compute_eri(df):
@@ -402,7 +380,7 @@ def compute_eri2(df, scale=5.0):
     return (1 - (abs(a - t) / scale)).clip(lower=0)
 
 # --------------------------------------------------------
-# NEW METRIC 1: ACS — Absorption Contagion Susceptibility (fixed mapping)
+# ACS — Absorption Contagion Susceptibility
 # --------------------------------------------------------
 
 def compute_acs(df):
@@ -411,19 +389,14 @@ def compute_acs(df):
 
     def vf(s):
         s = str(s).lower()
-        # positive
         if "pos" in s or "positive" in s:
             return 1.0
-        # mixed -> treat as neutral-ish
         if "mix" in s or "mixed" in s:
             return 0.5
-        # neutral explicit
         if "neutral" in s or s.strip() == "":
             return 0.5
-        # negative explicit
         if "neg" in s or "negative" in s:
             return -1.0
-        # fallback: neutral
         return 0.5
 
     factors = val.apply(vf)
@@ -432,7 +405,7 @@ def compute_acs(df):
     return acs
 
 # --------------------------------------------------------
-# NEW METRIC 2: Time Summary (global & per-team) using parser — MINIMAL
+# Time Summary (global & per-team)
 # --------------------------------------------------------
 
 def compute_time_summary(df):
@@ -452,17 +425,12 @@ def compute_time_summary(df):
             "p75_hours": None
         }
 
-    mean_hours = float(t_minutes.mean(skipna=True) / 60.0)
-    median_hours = float(t_minutes.median(skipna=True) / 60.0)
-    p25_hours = float(t_minutes.quantile(0.25) / 60.0)
-    p75_hours = float(t_minutes.quantile(0.75) / 60.0)
-
     return {
         "count": total,
-        "mean_hours": mean_hours,
-        "median_hours": median_hours,
-        "p25_hours": p25_hours,
-        "p75_hours": p75_hours
+        "mean_hours": float(t_minutes.mean(skipna=True) / 60.0),
+        "median_hours": float(t_minutes.median(skipna=True) / 60.0),
+        "p25_hours": float(t_minutes.quantile(0.25) / 60.0),
+        "p75_hours": float(t_minutes.quantile(0.75) / 60.0)
     }
 
 def compute_time_summary_by_team(df):
@@ -485,7 +453,7 @@ def compute_time_summary_by_team(df):
     return out
 
 # --------------------------------------------------------
-# NEW METRIC 3: Time -> Mood/Wellbeing Correlations (percent integers)
+# Time -> Mood/Wellbeing Correlations (percent integers)
 # --------------------------------------------------------
 
 def compute_time_correlations(df):
@@ -503,22 +471,13 @@ def compute_time_correlations(df):
             if len(pair) < 3:
                 out[m] = None
             else:
-                corr = pair.corr().iloc[0,1]
-                if pd.isna(corr):
-                    out[m] = None
-                else:
-                    # convert to whole-percent (e.g., 0.301 -> 30)
-                    out[m] = int(round(float(corr) * 100.0))
+                corr = pair.corr().iloc[0, 1]
+                out[m] = None if pd.isna(corr) else int(round(float(corr) * 100.0))
         else:
             out[m] = None
     return out
 
-# --------------------------------------------------------
-# Build manager-friendly insights from correlations
-# --------------------------------------------------------
-
 def make_time_insights(corr_dict):
-    # corr_dict values are percent ints or None
     insights = []
     mapping = {
         "overall_mood": "Mood",
@@ -530,9 +489,52 @@ def make_time_insights(corr_dict):
         if v is None:
             continue
         sign = "+" if v > 0 else ""
-        # keep whole-number percentage text
         insights.append(f"{mapping.get(k, k)} {sign}{v}% (correlation with time spent)")
     return insights
+
+# --------------------------------------------------------
+# Summary Stats (for frontend — avoids a second Supabase fetch)
+# --------------------------------------------------------
+
+def compute_summary_stats(df):
+    stats = {}
+    for col, key in [
+        ("overall_mood", "avg_mood"),
+        ("stress", "avg_stress"),
+        ("workload", "avg_workload"),
+        ("productivity", "avg_productivity"),
+    ]:
+        if col in df.columns:
+            val = pd.to_numeric(df[col], errors="coerce").mean(skipna=True)
+            stats[key] = float(val) if (val is not None and not math.isnan(val)) else None
+        else:
+            stats[key] = None
+    stats["total_entries"] = len(df)
+    return stats
+
+# --------------------------------------------------------
+# Predicted Emotion vs Team Metrics
+# --------------------------------------------------------
+
+def compute_predicted_emotion_vs_metrics(df):
+    if "final_label" not in df.columns:
+        return []
+
+    metric_cols = ["overall_mood", "stress", "workload", "productivity"]
+    available = [c for c in metric_cols if c in df.columns]
+    if not available:
+        return []
+
+    for col in available:
+        df[col] = pd.to_numeric(df[col], errors="coerce")
+
+    grouped = df.groupby("final_label")[available].mean().reset_index()
+    counts = df.groupby("final_label").size().reset_index(name="count")
+    result = grouped.merge(counts, on="final_label")
+    result = result.rename(columns={"final_label": "emotion"})
+    result["emotion"] = result["emotion"].str.lower()
+    result = result.sort_values("count", ascending=False)
+    return result.to_dict(orient="records")
 
 # --------------------------------------------------------
 # FULL PIPELINE
@@ -542,15 +544,12 @@ def run_full_analytics(df):
     df = df.copy()
     df = ensure_date(df)
 
-    # Basic metrics
-    # use soft ML-prob distribution so all 7 emotions are visible in analytics
     emotion_distribution = compute_emotion_distribution_soft(df)
     contagion_events = compute_contagion_events(df)
     top_trigger_terms = compute_top_trigger_terms(df)
     interaction_summary = compute_interaction_mode_summary(df)
     corr_matrix = compute_correlation_matrix(df)
 
-    # Research metrics
     df["ERI"] = compute_eri(df)
     df["ETE"] = compute_ete(df)
     df["TEDI"] = compute_tedi(df)
@@ -561,13 +560,15 @@ def run_full_analytics(df):
 
     erv_records = compute_erv(df)
 
-    # NEW TIME METRICS
     time_summary = compute_time_summary(df)
     time_summary_by_team = compute_time_summary_by_team(df)
     time_correlations = compute_time_correlations(df)
     time_insights = make_time_insights(time_correlations)
 
-    # research_summary — do NOT include time_summary/time_correlations here (per request)
+    # Summary stats — lets frontend skip a second Supabase fetch entirely
+    summary_stats = compute_summary_stats(df)
+    predicted_emotion_vs_metrics = compute_predicted_emotion_vs_metrics(df)
+
     research_summary = {
         "ERI_mean": float(df["ERI"].mean(skipna=True)) if "ERI" in df.columns else None,
         "ETE_mean": float(df["ETE"].mean(skipna=True)) if "ETE" in df.columns else None,
@@ -579,8 +580,10 @@ def run_full_analytics(df):
         "ERV_count": len(erv_records),
     }
 
-    # Final JSON payload
     payload = {
+        "summary_stats": summary_stats,
+        "predicted_emotion_vs_team_metrics": predicted_emotion_vs_metrics,
+
         "emotion_distribution": emotion_distribution,
         "contagion_events": contagion_events,
         "top_trigger_terms": top_trigger_terms,
@@ -596,11 +599,10 @@ def run_full_analytics(df):
         "eri2_series": df["ERI2"].fillna(0).tolist() if "ERI2" in df.columns else [],
         "acs_series": df["ACS"].fillna(0).tolist() if "ACS" in df.columns else [],
 
-        # Time outputs (minimal)
         "time_summary": time_summary,
         "time_summary_by_team": time_summary_by_team,
-        "time_correlations": time_correlations,   # percent ints (whole numbers) or None
-        "time_insights": time_insights,          # manager-friendly sentences
+        "time_correlations": time_correlations,
+        "time_insights": time_insights,
 
         "erv_records": erv_records
     }

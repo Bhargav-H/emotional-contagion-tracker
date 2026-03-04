@@ -1,17 +1,14 @@
-
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import pandas as pd
+import time
 from fastapi import FastAPI, HTTPException
-from datetime import datetime, timedelta
 # ──────────────────────────────
 # IMPORTS (MODEL LOADED HERE FIRST)
 # ──────────────────────────────
 from supabase_client import supabase
-from analytics.rule_based import rule_emotion_from_text_optimized
-from analytics.fusion import fusion_label_multilabel_enhanced
-from analytics.ml_model import predict_ml, load_model  # <-- ensure model loads first
+from analytics.ml_model import load_model  # <-- ensure model loads first
 from analytics.manager_analytics import run_full_analytics
 from process_emotions import process_once   # runs AFTER model is loaded
 # FORCE LOAD MODEL AT IMPORT TIME
@@ -32,7 +29,6 @@ app.add_middleware(
 # ──────────────────────────────
 # STARTUP EVENT → RUN ONLY AFTER MODEL IS LOADED
 # ──────────────────────────────
-from analytics.ml_model import load_model  # new import
 @app.on_event("startup")
 def on_startup():
     print("⚡ Startup: loading ML model...")
@@ -43,12 +39,21 @@ def on_startup():
 
 
 # ──────────────────────────────
+# IN-MEMORY CACHE
+# ──────────────────────────────
+_analytics_cache: dict = {}
+CACHE_TTL = 600  # 10 minutes — recompute after 10 min
+
+
+# ──────────────────────────────
 # REQUEST MODELS
 # ──────────────────────────────
 class AnalyticsRequest(BaseModel):
     team_id: str | None = None
     manager_id: str | None = None
-    days: int = 30
+    days: int | None = None  # no longer used — all rows are returned
+
+
 @app.get("/")
 def home():
     return {"status": "OK", "message": "Analytics backend running"}
@@ -63,8 +68,14 @@ def run_analytics(body: AnalyticsRequest):
         raise HTTPException(status_code=400, detail="Provide team_id or manager_id")
     if body.team_id and body.manager_id:
         raise HTTPException(status_code=400, detail="Provide only one: team_id OR manager_id")
-    # Compute date window
-    start_date = (datetime.utcnow() - timedelta(days=body.days)).isoformat()
+
+    # Check cache — return immediately if still fresh
+    cache_key = body.manager_id or body.team_id
+    cached = _analytics_cache.get(cache_key)
+    if cached and (time.time() - cached["ts"]) < CACHE_TTL:
+        print(f"✅ Cache hit for {cache_key}")
+        return cached["data"]
+
     # ------------------------------
     # MANAGER MODE
     # ------------------------------
@@ -97,33 +108,17 @@ def run_analytics(body: AnalyticsRequest):
             .execute()
             .data
         )
+
     if not rows:
         return run_full_analytics(pd.DataFrame([]))
-    # Convert to DataFrame
+
+    # final_label, ml_probs, rule_label etc. are already stored in emotion_logs
+    # by process_once() at startup — no need to re-run the ML pipeline here
     df = pd.DataFrame(rows)
-    if "key_event" not in df.columns:
-        df["key_event"] = ""
-    # ML predictions
-    texts = df["key_event"].astype(str).tolist()
-    ml_labels, ml_confs, ml_probs = predict_ml(texts)
-    df["ml_label"] = ml_labels
-    df["ml_confidence"] = ml_confs
-    df["ml_probs"] = ml_probs
-    # Rule
-    rule_outs = df["key_event"].apply(rule_emotion_from_text_optimized)
-    df["rule_label"] = rule_outs.apply(lambda x: x["rule_label"])
-    df["rule_confidence"] = rule_outs.apply(lambda x: x["rule_confidence"])
-    # Fusion
-    fusion_out = df.apply(
-        lambda row: fusion_label_multilabel_enhanced(
-            row["ml_probs"], row["rule_label"], row["rule_confidence"]
-        ),
-        axis=1,
-    )
-    df["final_label"] = fusion_out.apply(
-        lambda x: x[0][0] if isinstance(x[0], list) else x[0]
-    )
-    df["final_confidence"] = fusion_out.apply(lambda x: float(x[1]))
-    df["final_low_confidence"] = fusion_out.apply(lambda x: bool(x[2]))
-    # Analytics engine (unchanged)
-    return run_full_analytics(df)
+
+    result = run_full_analytics(df)
+
+    # Store in cache
+    _analytics_cache[cache_key] = {"ts": time.time(), "data": result}
+
+    return result
